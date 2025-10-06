@@ -1,0 +1,170 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  CLIENT
+  ADMIN
+  CLEANER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  PAYSTACK
+  CASH
+  TRANSFER
+}
+
+model User {
+  id               Int                 @id @default(autoincrement())
+  name             String
+  email            String              @unique
+  phone            String?
+  role             UserRole            @default(CLIENT)
+  password         String             // hashed password
+  isAdmin          Boolean             @default(false)
+  clientBookings   Booking[]           @relation("ClientBookings")
+  assignedBookings Booking[]           @relation("AssignedBookings")
+  availabilities   StaffAvailability[] @relation("UserAvailabilities")
+  notifications    Notification[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  description String?
+  basePrice   Float
+  duration    Int       // minutes
+  isActive    Boolean   @default(true)
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Extra {
+  id        Int      @id @default(autoincrement())
+  name      String
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bookings  BookingExtra[]
+}
+
+model BookingExtra {
+  id        Int     @id @default(autoincrement())
+  booking   Booking @relation("BookingExtras", fields: [bookingId], references: [id])
+  bookingId Int
+  extra     Extra   @relation(fields: [extraId], references: [id])
+  extraId   Int
+  quantity  Int     @default(1)
+}
+
+model Booking {
+  id           Int             @id @default(autoincrement())
+  client       User            @relation("ClientBookings", fields: [clientId], references: [id])
+  clientId     Int
+  service      Service         @relation(fields: [serviceId], references: [id])
+  serviceId    Int
+  extras       BookingExtra[]  @relation("BookingExtras")
+  startAt      DateTime
+  endAt        DateTime
+  duration     Int?            // cached duration
+  addressLine1 String
+  addressLine2 String?
+  city         String?
+  postcode     String?
+  lat          Float?
+  lng          Float?
+  status       BookingStatus   @default(PENDING)
+  assignedTo   User?           @relation("AssignedBookings", fields: [assignedToId], references: [id])
+  assignedToId Int?
+  total        Float
+  currency     String          @default("GBP")
+  payment      Payment?        @relation("BookingPayment")
+  notes        String?
+  metadata     Json?
+  canceledAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([startAt])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+model Payment {
+  id          Int           @id @default(autoincrement())
+  booking     Booking       @relation("BookingPayment", fields: [bookingId], references: [id])
+  bookingId   Int           @unique
+  amount      Float
+  method      PaymentMethod
+  providerRef String?       
+  status      PaymentStatus @default(UNPAID)
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model StaffAvailability {
+  id        Int      @id @default(autoincrement())
+  staff     User     @relation("UserAvailabilities", fields: [staffId], references: [id])
+  staffId   Int
+  dayOfWeek Int?     // 0=Sunday..6=Saturday
+  startTime String?  
+  endTime   String?
+  startAt   DateTime?
+  endAt     DateTime?
+  isBlocked Boolean   @default(false)
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  type      String
+  message   String
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  entity    String
+  entityId  Int
+  action    String
+  userId    Int?
+  data      Json?
+  createdAt DateTime @default(now())
+}
