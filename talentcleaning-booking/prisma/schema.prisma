@@ -46,7 +46,7 @@ model User {
   email            String              @unique
   phone            String?
   role             UserRole            @default(CLIENT)
-  password         String             // hashed password
+  password         String // hashed password
   isAdmin          Boolean             @default(false)
   clientBookings   Booking[]           @relation("ClientBookings")
   assignedBookings Booking[]           @relation("AssignedBookings")
@@ -62,7 +62,7 @@ model Service {
   name        String
   description String?
   basePrice   Float
-  duration    Int       // minutes
+  duration    Int // minutes
   isActive    Boolean   @default(true)
   bookings    Booking[]
   createdAt   DateTime  @default(now())
@@ -70,12 +70,22 @@ model Service {
 }
 
 model Extra {
-  id        Int      @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   name      String
   price     Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
   bookings  BookingExtra[]
+}
+
+model BookingEvent {
+  id        Int      @id @default(autoincrement())
+  booking   Booking  @relation("BookingToBookingEvent", fields: [bookingId], references: [id])
+  bookingId Int
+  type      String
+  message   String?
+  data      Json?
+  createdAt DateTime @default(now())
 }
 
 model BookingExtra {
@@ -87,34 +97,63 @@ model BookingExtra {
   quantity  Int     @default(1)
 }
 
+model BookingFile {
+  id         Int      @id @default(autoincrement())
+  booking    Booking  @relation("BookingToBookingFile", fields: [bookingId], references: [id])
+  bookingId  Int
+  url        String
+  filename   String
+  mimeType   String
+  uploadedBy Int? // user id
+  createdAt  DateTime @default(now())
+}
+
+model Quote {
+  id        Int      @id @default(autoincrement())
+  booking   Booking? @relation
+  amount    Float
+  breakdown Json? // { items: [{desc, qty, price}], taxes, subtotal }
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int?
+}
+
 model Booking {
-  id           Int             @id @default(autoincrement())
-  client       User            @relation("ClientBookings", fields: [clientId], references: [id])
+  id           Int            @id @default(autoincrement())
+  client       User           @relation("ClientBookings", fields: [clientId], references: [id])
   clientId     Int
-  service      Service         @relation(fields: [serviceId], references: [id])
+  service      Service        @relation(fields: [serviceId], references: [id])
   serviceId    Int
-  extras       BookingExtra[]  @relation("BookingExtras")
+  extras       BookingExtra[] @relation("BookingExtras")
   startAt      DateTime
   endAt        DateTime
-  duration     Int?            // cached duration
+  duration     Int? // cached duration in minutes
   addressLine1 String
   addressLine2 String?
   city         String?
   postcode     String?
   lat          Float?
   lng          Float?
-  status       BookingStatus   @default(PENDING)
-  assignedTo   User?           @relation("AssignedBookings", fields: [assignedToId], references: [id])
+  phone        String
+  status       BookingStatus  @default(PENDING)
+  assignedTo   User?          @relation("AssignedBookings", fields: [assignedToId], references: [id])
   assignedToId Int?
   total        Float
-  currency     String          @default("GBP")
-  payment      Payment?        @relation("BookingPayment")
+  currency     String         @default("NGN")
+  payment      Payment?       @relation("BookingPayment")
   notes        String?
-  metadata     Json?
+  metadata     Json? // flexible field for custom data (raw form, form version, etc.)
   canceledAt   DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  attachments  BookingFile[]  @relation("BookingToBookingFile")
+  history      BookingEvent[] @relation("BookingToBookingEvent")
+  quote        Quote?         @relation(fields: [quoteId], references: [id])
+  quoteId      Int?           @unique
+  reference    String?        @unique
 
+  // indexes
   @@index([startAt])
   @@index([status])
   @@index([assignedToId])
@@ -126,7 +165,7 @@ model Payment {
   bookingId   Int           @unique
   amount      Float
   method      PaymentMethod
-  providerRef String?       
+  providerRef String?
   status      PaymentStatus @default(UNPAID)
   paidAt      DateTime?
   createdAt   DateTime      @default(now())
@@ -134,11 +173,11 @@ model Payment {
 }
 
 model StaffAvailability {
-  id        Int      @id @default(autoincrement())
-  staff     User     @relation("UserAvailabilities", fields: [staffId], references: [id])
+  id        Int       @id @default(autoincrement())
+  staff     User      @relation("UserAvailabilities", fields: [staffId], references: [id])
   staffId   Int
-  dayOfWeek Int?     // 0=Sunday..6=Saturday
-  startTime String?  
+  dayOfWeek Int? // 0=Sunday..6=Saturday
+  startTime String?
   endTime   String?
   startAt   DateTime?
   endAt     DateTime?

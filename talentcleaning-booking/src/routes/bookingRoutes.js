@@ -2,33 +2,34 @@ import express from "express";
 import {
   createBooking,
   getAllBookings,
-  getMyBookings,
+  getBookingById,
   updateBookingStatus,
   deleteBooking,
-} from "../controllers/BookingController.js";
-
-import { authenticate, authorizeRoles } from "../middleware/auth.js";
+  addBookingFile,
+} from "../controllers/bookingController.js";
 
 const router = express.Router();
 
-// Client: create booking
-router.post("/", authenticate, createBooking);
+/**
+ * Booking Routes
+ */
 
-// Client: see my bookings
-router.get("/me", authenticate, getMyBookings);
+// ✅ Create a new booking (Client)
+router.post("/", createBooking);
 
-// Admin: see all bookings
-router.get("/", authenticate, authorizeRoles("ADMIN"), getAllBookings);
+// ✅ Get all bookings (Admin dashboard)
+router.get("/", getAllBookings);
 
-// Admin/Cleaner: update booking status
-router.put(
-  "/:id",
-  authenticate,
-  authorizeRoles("ADMIN", "CLEANER"),
-  updateBookingStatus
-);
+// ✅ Get single booking details (Admin or Client)
+router.get("/:id", getBookingById);
 
-// Admin: delete booking
-router.delete("/:id", authenticate, authorizeRoles("ADMIN"), deleteBooking);
+// ✅ Update booking status or notes (Admin)
+router.patch("/:id/status", updateBookingStatus);
+
+// ✅ Upload a booking file (Admin)
+router.post("/:id/files", addBookingFile);
+
+// ✅ Delete booking (Admin)
+router.delete("/:id", deleteBooking);
 
 export default router;

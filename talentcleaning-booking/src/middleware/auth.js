@@ -2,14 +2,16 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 
-dotenv.config();
 const prisma = new PrismaClient();
+
+dotenv.config();
 
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res
+      .status(401)
+      .json({ success: false, message: "No token provided" });
   }
 
   const token = authHeader.split(" ")[1];
@@ -17,26 +19,31 @@ export const authenticate = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 Fetch full user data from DB so we have role + isAdmin
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
+      select: { id: true, role: true, email: true },
     });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
 
     req.user = user;
     next();
   } catch (err) {
-    console.error(err);
-    res.status(401).json({ message: "Invalid token" });
+    const message =
+      err.name === "TokenExpiredError" ? "Token expired" : "Invalid token";
+    res.status(401).json({ success: false, message });
   }
 };
 
-// ✅ Role check
 export const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: " You don’t have access" });
+    const role = req.user?.role?.toLowerCase();
+    if (!role || !allowedRoles.map((r) => r.toLowerCase()).includes(role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
     }
     next();
   };
