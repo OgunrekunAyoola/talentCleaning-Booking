@@ -82,11 +82,18 @@ export const getAllBookings = async (req, res) => {
     const bookings = await prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        quote: true,
+        client: true,
+        service: true,
+        extras: {
+          include: { extra: true },
+        },
+        assignedTo: true,
         attachments: true,
         history: true,
+        payment: true,
       },
     });
+
     res.json(bookings);
   } catch (err) {
     console.error("Get all bookings error:", err);
