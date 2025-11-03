@@ -88,7 +88,6 @@ export const getAllBookings = async (req, res) => {
           include: { extra: true },
         },
         assignedTo: true,
-        attachments: true,
         history: true,
         payment: true,
       },
