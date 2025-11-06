@@ -5,7 +5,7 @@ import { authenticate } from "../middleware/auth.js";
 const router = express.Router();
 
 // Register route (auth needed only if assigning ADMIN or CLEANER)
-router.post("/register", authenticate, registerUser);
+router.post("/register", registerUser);
 
 // Login route
 router.post("/login", loginUser);
