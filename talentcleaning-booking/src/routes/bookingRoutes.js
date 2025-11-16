@@ -7,6 +7,9 @@ import {
   deleteBooking,
   addBookingFile,
 } from "../controllers/bookingController.js";
+import { authenticate } from "../middleware/auth.js";
+
+router.post("/", authenticate, createBooking);
 
 const router = express.Router();
 
@@ -15,7 +18,7 @@ const router = express.Router();
  */
 
 // ✅ Create a new booking (Client)
-router.post("/", createBooking);
+router.post("/", authenticate, createBooking);
 
 // ✅ Get all bookings (Admin dashboard)
 router.get("/", getAllBookings);
