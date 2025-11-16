@@ -9,8 +9,6 @@ import {
 } from "../controllers/bookingController.js";
 import { authenticate } from "../middleware/auth.js";
 
-router.post("/", authenticate, createBooking);
-
 const router = express.Router();
 
 /**
