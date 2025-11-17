@@ -4,58 +4,65 @@ const prisma = new PrismaClient();
 /**
  * Create a booking
  */
+
 export const createBooking = async (req, res) => {
   try {
+    // Only logged-in clients can book
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
     const {
       serviceId,
-      startAt,
-      endAt,
       clientName,
       clientEmail,
       clientPhone,
       address,
       serviceType,
+      startAt,
+      endAt,
       notes,
+      propertySize,
+      visitFrequency,
     } = req.body;
 
-    // Optional: ensure authentication if required
-    if (!req.user)
-      return res.status(401).json({ message: "Authentication required" });
-
     // Validate required fields
-    if (!serviceId || !startAt || !clientName || !clientPhone) {
+    if (!clientName || !clientPhone || !startAt) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Check service exists
-    const service = await prisma.service.findUnique({
-      where: { id: Number(serviceId) },
-    });
-    if (!service) return res.status(404).json({ message: "Service not found" });
+    // Optional: try to find service, but allow booking even if not found
+    let service = null;
+    if (serviceId) {
+      service = await prisma.service.findUnique({
+        where: { id: Number(serviceId) },
+      });
+    }
 
     // Create booking
     const booking = await prisma.booking.create({
       data: {
-        clientName,
-        clientEmail,
-        clientPhone,
-        address,
-        serviceType,
-        price: service.basePrice,
-        notes,
+        clientId: user.id,
+        serviceId: service ? service.id : null, // allow null if service not found
         startAt: new Date(startAt),
         endAt: endAt ? new Date(endAt) : null,
-        status: "pending",
-      },
-      include: {
-        quote: true,
-        attachments: true,
-        history: true,
-        // service: true // optional if model connected
+        addressLine1: address || "",
+        phone: clientPhone,
+        status: "PENDING",
+        notes,
+        metadata: {
+          serviceType,
+          propertySize,
+          visitFrequency,
+          clientEmail,
+        },
+        total: service ? service.basePrice : 0,
+        currency: "NGN",
       },
     });
 
-    // Create initial history event
+    // Optionally create initial history event
     await prisma.bookingEvent.create({
       data: {
         eventType: "CREATED",
