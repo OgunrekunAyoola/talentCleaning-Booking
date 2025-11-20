@@ -157,7 +157,7 @@ export const updateBookingStatus = async (req, res) => {
     // Add history log
     await prisma.bookingEvent.create({
       data: {
-        eventType: "STATUS_UPDATE",
+        type: "STATUS_UPDATE",
         message: `Booking status updated to ${status}`,
         bookingId: booking.id,
       },
@@ -188,7 +188,7 @@ export const addBookingFile = async (req, res) => {
 
     await prisma.bookingEvent.create({
       data: {
-        eventType: "FILE_ADDED",
+        type: "FILE_ADDED",
         message: `File uploaded: ${fileUrl}`,
         bookingId: Number(id),
       },
@@ -221,7 +221,7 @@ export const deleteBooking = async (req, res) => {
 
     await prisma.bookingEvent.create({
       data: {
-        eventType: "DELETED",
+        type: "DELETED",
         message: `Booking deleted (ID: ${id})`,
         bookingId: Number(id),
       },
