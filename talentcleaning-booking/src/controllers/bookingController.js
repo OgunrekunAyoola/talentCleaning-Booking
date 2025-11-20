@@ -71,13 +71,19 @@ export const createBooking = async (req, res) => {
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Booking created successfully",
       booking,
     });
   } catch (err) {
-    console.error("Create booking error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Booking creation failed:", err);
+
+    // Return detailed error to frontend
+    return res.status(500).json({
+      message: "Server error during booking creation",
+      error: err.message,
+      stack: err.stack,
+    });
   }
 };
 
