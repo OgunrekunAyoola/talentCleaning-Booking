@@ -65,7 +65,7 @@ export const createBooking = async (req, res) => {
     // Optionally create initial history event
     await prisma.bookingEvent.create({
       data: {
-        eventType: "CREATED",
+        type: "CREATED", // ✅ matches Prisma model
         message: `Booking created for ${clientName}`,
         bookingId: booking.id,
       },
