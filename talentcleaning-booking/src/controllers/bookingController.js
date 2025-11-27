@@ -128,6 +128,27 @@ export const getBookingById = async (req, res) => {
   }
 };
 
+export const getMyBookings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const bookings = await prisma.booking.findMany({
+      where: { userId },
+      include: {
+        service: true,
+        quote: true,
+        attachments: true,
+        history: true,
+      },
+    });
+
+    res.json(bookings);
+  } catch (err) {
+    console.error("Get my bookings error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 /**
  * Update booking status
  */
