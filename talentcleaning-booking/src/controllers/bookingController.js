@@ -4,14 +4,11 @@ const prisma = new PrismaClient();
 /**
  * Create a booking
  */
-
 export const createBooking = async (req, res) => {
   try {
-    // Only logged-in clients can book
     const user = req.user;
-    if (!user) {
+    if (!user)
       return res.status(401).json({ message: "Authentication required" });
-    }
 
     const {
       serviceId,
@@ -27,24 +24,23 @@ export const createBooking = async (req, res) => {
       visitFrequency,
     } = req.body;
 
-    // Validate required fields
-    if (!clientName || !clientPhone || !startAt) {
+    if (!clientName || !clientPhone || !startAt || !serviceId) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Optional: try to find service, but allow booking even if not found
-    let service = null;
-    if (serviceId) {
-      service = await prisma.service.findUnique({
-        where: { id: Number(serviceId) },
-      });
+    // serviceId MUST exist because schema requires it
+    const service = await prisma.service.findUnique({
+      where: { id: Number(serviceId) },
+    });
+
+    if (!service) {
+      return res.status(400).json({ message: "Invalid serviceId" });
     }
 
-    // Create booking
     const booking = await prisma.booking.create({
       data: {
         clientId: user.id,
-        serviceId: service ? service.id : null, // allow null if service not found
+        serviceId: service.id,
         startAt: new Date(startAt),
         endAt: endAt ? new Date(endAt) : null,
         addressLine1: address || "",
@@ -57,15 +53,14 @@ export const createBooking = async (req, res) => {
           visitFrequency,
           clientEmail,
         },
-        total: service ? service.basePrice : 0,
+        total: service.basePrice,
         currency: "NGN",
       },
     });
 
-    // Optionally create initial history event
     await prisma.bookingEvent.create({
       data: {
-        type: "CREATED", // ✅ matches Prisma model
+        type: "CREATED",
         message: `Booking created for ${clientName}`,
         bookingId: booking.id,
       },
@@ -77,18 +72,15 @@ export const createBooking = async (req, res) => {
     });
   } catch (err) {
     console.error("Booking creation failed:", err);
-
-    // Return detailed error to frontend
     return res.status(500).json({
       message: "Server error during booking creation",
       error: err.message,
-      stack: err.stack,
     });
   }
 };
 
 /**
- * Get all bookings (Admin)
+ * Get all bookings
  */
 export const getAllBookings = async (req, res) => {
   try {
@@ -97,9 +89,7 @@ export const getAllBookings = async (req, res) => {
       include: {
         client: true,
         service: true,
-        extras: {
-          include: { extra: true },
-        },
+        extras: { include: { extra: true } },
         assignedTo: true,
         history: true,
         payment: true,
@@ -114,7 +104,7 @@ export const getAllBookings = async (req, res) => {
 };
 
 /**
- * Get booking details (Admin or Client)
+ * Get booking by ID
  */
 export const getBookingById = async (req, res) => {
   try {
@@ -139,7 +129,7 @@ export const getBookingById = async (req, res) => {
 };
 
 /**
- * Update booking status (Admin)
+ * Update booking status
  */
 export const updateBookingStatus = async (req, res) => {
   try {
@@ -148,13 +138,9 @@ export const updateBookingStatus = async (req, res) => {
 
     const booking = await prisma.booking.update({
       where: { id: Number(id) },
-      data: {
-        status,
-        notes,
-      },
+      data: { status, notes },
     });
 
-    // Add history log
     await prisma.bookingEvent.create({
       data: {
         type: "STATUS_UPDATE",
@@ -171,25 +157,32 @@ export const updateBookingStatus = async (req, res) => {
 };
 
 /**
- * Upload booking attachment (Admin)
+ * Add booking file
  */
 export const addBookingFile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fileUrl, fileType } = req.body;
+    const { url, filename, mimeType } = req.body;
+
+    if (!url || !filename || !mimeType) {
+      return res
+        .status(400)
+        .json({ message: "Missing file fields (url, filename, mimeType)" });
+    }
 
     const file = await prisma.bookingFile.create({
       data: {
-        fileUrl,
-        fileType,
         bookingId: Number(id),
+        url,
+        filename,
+        mimeType,
       },
     });
 
     await prisma.bookingEvent.create({
       data: {
         type: "FILE_ADDED",
-        message: `File uploaded: ${fileUrl}`,
+        message: `File uploaded: ${filename}`,
         bookingId: Number(id),
       },
     });
@@ -202,29 +195,31 @@ export const addBookingFile = async (req, res) => {
 };
 
 /**
- * Delete booking (Admin)
+ * Delete booking
  */
 export const deleteBooking = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const existingBooking = await prisma.booking.findUnique({
+    const existing = await prisma.booking.findUnique({
       where: { id: Number(id) },
     });
 
-    if (!existingBooking)
+    if (!existing) {
       return res.status(404).json({ message: "Booking not found" });
+    }
 
-    await prisma.booking.delete({
-      where: { id: Number(id) },
-    });
-
+    // Log BEFORE deletion, to respect FK
     await prisma.bookingEvent.create({
       data: {
         type: "DELETED",
         message: `Booking deleted (ID: ${id})`,
-        bookingId: Number(id),
+        bookingId: existing.id,
       },
+    });
+
+    await prisma.booking.delete({
+      where: { id: Number(id) },
     });
 
     res.json({ message: "Booking deleted successfully" });
