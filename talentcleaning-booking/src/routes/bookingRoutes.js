@@ -6,6 +6,7 @@ import {
   updateBookingStatus,
   deleteBooking,
   addBookingFile,
+  getMyBookings,
 } from "../controllers/bookingController.js";
 import { authenticate } from "../middleware/auth.js";
 
@@ -19,18 +20,21 @@ const router = express.Router();
 router.post("/", authenticate, createBooking);
 
 // ✅ Get all bookings (Admin dashboard)
-router.get("/", getAllBookings);
+router.get("/", authenticate, getAllBookings);
+
+// get singleuser bookings
+router.get("/me", authenticate, getMyBookings);
 
 // ✅ Get single booking details (Admin or Client)
-router.get("/:id", getBookingById);
+router.get("/:id", authenticate, getBookingById);
 
 // ✅ Update booking status or notes (Admin)
-router.patch("/:id/status", updateBookingStatus);
+router.patch("/:id/status", authenticate, updateBookingStatus);
 
 // ✅ Upload a booking file (Admin)
-router.post("/:id/files", addBookingFile);
+router.post("/:id/files", authenticate, addBookingFile);
 
 // ✅ Delete booking (Admin)
-router.delete("/:id", deleteBooking);
+router.delete("/:id", authenticate, deleteBooking);
 
 export default router;
