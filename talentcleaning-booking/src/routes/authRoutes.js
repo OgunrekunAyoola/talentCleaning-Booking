@@ -1,13 +1,9 @@
 import express from "express";
-import { registerUser, loginUser } from "../controllers/authController.js";
+import { syncUser } from "../controllers/authController.js";
 import { authenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Register route (auth needed only if assigning ADMIN or CLEANER)
-router.post("/register", registerUser);
-
-// Login route
-router.post("/login", loginUser);
+router.get("/me", authenticate, syncUser);
 
 export default router;

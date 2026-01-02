@@ -1,49 +1,45 @@
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
+import admin from "../config/firebaseAdmin.js";
 import { PrismaClient } from "@prisma/client";
-
 const prisma = new PrismaClient();
 
-dotenv.config();
-
 export const authenticate = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res
-      .status(401)
-      .json({ success: false, message: "No token provided" });
-  }
-
-  const token = authHeader.split(" ")[1];
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const header = req.headers.authorization;
+    if (!header?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "No token" });
+    }
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, role: true, email: true },
+    const token = header.split(" ")[1];
+    const decoded = await admin.auth().verifyIdToken(token);
+
+    let user = await prisma.user.findUnique({
+      where: { firebaseUid: decoded.uid },
     });
 
     if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+      user = await prisma.user.create({
+        data: {
+          firebaseUid: decoded.uid,
+          email: decoded.email,
+        },
+      });
     }
 
-    req.user = user;
+    req.user = {
+      id: user.id,
+      role: user.role,
+    };
+
     next();
-  } catch (err) {
-    const message =
-      err.name === "TokenExpiredError" ? "Token expired" : "Invalid token";
-    res.status(401).json({ success: false, message });
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
   }
 };
 
-export const authorizeRoles = (...allowedRoles) => {
+export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
-    const role = req.user?.role?.toLowerCase();
-    if (!role || !allowedRoles.map((r) => r.toLowerCase()).includes(role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
     next();
   };

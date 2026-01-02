@@ -42,11 +42,12 @@ enum PaymentMethod {
 
 model User {
   id               Int                 @id @default(autoincrement())
+  firebaseUid      String?             @unique   // 👈 optional for now
   name             String
   email            String              @unique
   phone            String?
   role             UserRole            @default(CLIENT)
-  password         String // hashed password
+  password         String?             // already discussed
   isAdmin          Boolean             @default(false)
   clientBookings   Booking[]           @relation("ClientBookings")
   assignedBookings Booking[]           @relation("AssignedBookings")
@@ -55,6 +56,8 @@ model User {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 }
+
+
 
 model Service {
   id          Int       @id @default(autoincrement())
