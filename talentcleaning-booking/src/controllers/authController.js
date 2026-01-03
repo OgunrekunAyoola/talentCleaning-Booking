@@ -4,25 +4,25 @@ const prisma = new PrismaClient();
 export const syncUser = async (req, res) => {
   const { uid, email, name } = req.firebaseUser;
 
+  // 1️⃣ Find by firebaseUid OR email (migration-safe)
   let user = await prisma.user.findFirst({
     where: {
       OR: [{ firebaseUid: uid }, { email }],
     },
   });
 
-  // create new user
+  // 2️⃣ Create if missing
   if (!user) {
     user = await prisma.user.create({
       data: {
         firebaseUid: uid,
         email,
         name: name ?? "User",
-        role: "USER",
       },
     });
   }
 
-  // link old user to firebase
+  // 3️⃣ Link existing legacy user
   else if (!user.firebaseUid) {
     user = await prisma.user.update({
       where: { id: user.id },
@@ -30,10 +30,5 @@ export const syncUser = async (req, res) => {
     });
   }
 
-  res.json({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  });
+  res.json(user);
 };
