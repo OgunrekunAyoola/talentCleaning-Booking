@@ -8,6 +8,8 @@ if (!admin.apps.length) {
       privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     }),
   });
+
+  console.log("✅ Firebase Admin initialized");
 }
 
 export default admin;
