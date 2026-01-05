@@ -17,13 +17,22 @@ export const authenticate = async (req, res, next) => {
 
     const token = header.split(" ")[1];
 
+    // 👇 DECODE WITHOUT VERIFYING
+    const decodedUnverified = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64").toString()
+    );
+
+    console.log("TOKEN ISSUER:", decodedUnverified.iss);
+    console.log("TOKEN AUD:", decodedUnverified.aud);
+
+    // 👇 VERIFY
     const decoded = await admin.auth().verifyIdToken(token);
 
-    req.firebaseUser = decoded; // 👈 IMPORTANT
+    req.firebaseUser = decoded;
     next();
   } catch (err) {
-    console.error("Auth error:", err);
-    res.status(401).json({ message: "Invalid or expired token" });
+    console.error("verifyIdToken FAILED:", err.message);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
