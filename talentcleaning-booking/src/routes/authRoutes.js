@@ -4,6 +4,6 @@ import { authenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get("/me", authenticate, syncUser);
+router.get("/sync", authenticate, syncUser);
 
 export default router;
