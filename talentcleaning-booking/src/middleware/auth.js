@@ -1,8 +1,11 @@
 import admin from "../config/firebaseAdmin";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 /**
- * Authenticate Firebase token ONLY
- * Attach decoded Firebase user to req.firebaseUser
+ * Authenticate user via Firebase token
+ * and attach full DB user to req.user
  */
 export const authenticate = async (req, res, next) => {
   try {
@@ -24,6 +27,9 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
+/**
+ * Role-based authorization
+ */
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
