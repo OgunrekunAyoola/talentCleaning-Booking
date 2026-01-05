@@ -48,7 +48,6 @@ model User {
   phone            String?
   role             UserRole            @default(CLIENT)
   password         String?             // already discussed
-  isAdmin          Boolean             @default(false)
   clientBookings   Booking[]           @relation("ClientBookings")
   assignedBookings Booking[]           @relation("AssignedBookings")
   availabilities   StaffAvailability[] @relation("UserAvailabilities")

@@ -3,6 +3,10 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+/**
+ * Authenticate user via Firebase token
+ * and attach full DB user to req.user
+ */
 export const authenticate = async (req, res, next) => {
   try {
     const header = req.headers.authorization;
@@ -16,12 +20,17 @@ export const authenticate = async (req, res, next) => {
     // 🔹 Verify Firebase token
     const decoded = await admin.auth().verifyIdToken(token);
 
-    // 🔹 Attach Firebase user info
-    req.firebaseUser = {
-      uid: decoded.uid,
-      email: decoded.email,
-      name: decoded.name || decoded.email?.split("@")[0],
-    };
+    // 🔹 Find user in database
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: decoded.uid },
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // 🔹 Attach user (IMPORTANT)
+    req.user = user;
 
     next();
   } catch (err) {
@@ -30,6 +39,9 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
+/**
+ * Role-based authorization
+ */
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
