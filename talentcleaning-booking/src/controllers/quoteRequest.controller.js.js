@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
-/***
+/**
  * Create Quote Request (PUBLIC – Contact / Request Quote)
  */
 export const createQuoteRequest = async (req, res) => {
