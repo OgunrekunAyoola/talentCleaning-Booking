@@ -5,6 +5,7 @@ import authRoutes from "./src/routes/authRoutes.js";
 import bookingRoutes from "./src/routes/bookingRoutes.js";
 import serviceRoutes from "./src/routes/serviceRoutes.js";
 import userRoutes from "./src/routes/userRoutes.js";
+import qouterequestroutes from "./src/routes/qouteRequest.routes.js";
 import { errorHandler } from "./src/middleware/errorHandler.js";
 
 dotenv.config();
@@ -23,6 +24,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/qouteRequest", qouterequestroutes);
 
 // Global error handler (must come after routes)
 app.use(errorHandler);

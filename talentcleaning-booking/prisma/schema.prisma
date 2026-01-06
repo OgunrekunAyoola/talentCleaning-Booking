@@ -42,21 +42,21 @@ enum PaymentMethod {
 
 model User {
   id               Int                 @id @default(autoincrement())
-  firebaseUid      String?             @unique   // 👈 optional for now
+  firebaseUid      String?             @unique
   name             String
   email            String              @unique
   phone            String?
   role             UserRole            @default(CLIENT)
-  password         String?             // already discussed
+  password         String?             // legacy / fallback only
+
   clientBookings   Booking[]           @relation("ClientBookings")
   assignedBookings Booking[]           @relation("AssignedBookings")
   availabilities   StaffAvailability[] @relation("UserAvailabilities")
   notifications    Notification[]
+
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 }
-
-
 
 model Service {
   id          Int       @id @default(autoincrement())
@@ -64,25 +64,119 @@ model Service {
   name        String
   description String?
   basePrice   Float
-  duration    Int // minutes
+  duration    Int
   isActive    Boolean   @default(true)
+
   bookings    Booking[]
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
 
-model Extra {
-  id        Int            @id @default(autoincrement())
-  name      String
-  price     Float
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  bookings  BookingExtra[]
+/* =========================
+   BOOKINGS (REAL JOBS)
+========================= */
+
+model Booking {
+  id           Int            @id @default(autoincrement())
+
+  client       User           @relation("ClientBookings", fields: [clientId], references: [id])
+  clientId     Int
+
+  service      Service        @relation(fields: [serviceId], references: [id])
+  serviceId    Int
+
+  startAt      DateTime
+  endAt        DateTime?
+  duration     Int?
+
+  addressLine1 String
+  addressLine2 String?
+  city         String?
+  postcode     String?
+
+  phone        String
+  notes        String?
+
+  status       BookingStatus  @default(PENDING)
+
+  assignedTo   User?          @relation("AssignedBookings", fields: [assignedToId], references: [id])
+  assignedToId Int?
+
+  total        Float?
+  currency     String         @default("NGN")
+
+  payment      Payment?
+  attachments  BookingFile[]
+  history      BookingEvent[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([startAt])
+  @@index([status])
+}
+
+/* =========================
+   QUOTE REQUESTS (LEADS)
+========================= */
+
+model QuoteRequest {
+  id            Int      @id @default(autoincrement())
+
+  name          String
+  email         String
+  phone         String
+
+  company       String?
+  serviceType   String?
+  propertySize  String?
+  frequency     String?
+
+  message       String?
+
+  status        String   @default("NEW") // NEW | CONTACTED | QUOTED | CLOSED
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/* =========================
+   PAYMENTS
+========================= */
+
+model Payment {
+  id          Int           @id @default(autoincrement())
+  booking     Booking       @relation(fields: [bookingId], references: [id])
+  bookingId   Int           @unique
+  amount      Float
+  method      PaymentMethod
+  providerRef String?
+  status      PaymentStatus @default(UNPAID)
+  paidAt      DateTime?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+/* =========================
+   SUPPORT TABLES
+========================= */
+
+model BookingFile {
+  id         Int      @id @default(autoincrement())
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  bookingId  Int
+  url        String
+  filename   String
+  mimeType   String
+  uploadedBy Int?
+  createdAt  DateTime @default(now())
 }
 
 model BookingEvent {
   id        Int      @id @default(autoincrement())
-  booking   Booking  @relation("BookingToBookingEvent", fields: [bookingId], references: [id])
+  booking   Booking  @relation(fields: [bookingId], references: [id])
   bookingId Int
   type      String
   message   String?
@@ -90,103 +184,19 @@ model BookingEvent {
   createdAt DateTime @default(now())
 }
 
-model BookingExtra {
-  id        Int     @id @default(autoincrement())
-  booking   Booking @relation("BookingExtras", fields: [bookingId], references: [id])
-  bookingId Int
-  extra     Extra   @relation(fields: [extraId], references: [id])
-  extraId   Int
-  quantity  Int     @default(1)
-}
-
-model BookingFile {
-  id         Int      @id @default(autoincrement())
-  booking    Booking  @relation("BookingToBookingFile", fields: [bookingId], references: [id])
-  bookingId  Int
-  url        String
-  filename   String
-  mimeType   String
-  uploadedBy Int? // user id
-  createdAt  DateTime @default(now())
-}
-
-model Quote {
-  id        Int      @id @default(autoincrement())
-  booking   Booking? @relation
-  amount    Float
-  breakdown Json? // { items: [{desc, qty, price}], taxes, subtotal }
-  approved  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int?
-}
-
-model Booking {
-  id           Int            @id @default(autoincrement())
-  client       User           @relation("ClientBookings", fields: [clientId], references: [id])
-  clientId     Int
-  service      Service        @relation(fields: [serviceId], references: [id])
-  serviceId    Int
-  extras       BookingExtra[] @relation("BookingExtras")
-  startAt      DateTime
-  endAt        DateTime
-  duration     Int? // cached duration in minutes
-  addressLine1 String
-  addressLine2 String?
-  city         String?
-  postcode     String?
-  lat          Float?
-  lng          Float?
-  phone        String
-  status       BookingStatus  @default(PENDING)
-  assignedTo   User?          @relation("AssignedBookings", fields: [assignedToId], references: [id])
-  assignedToId Int?
-  total        Float
-  currency     String         @default("NGN")
-  payment      Payment?       @relation("BookingPayment")
-  notes        String?
-  metadata     Json? // flexible field for custom data (raw form, form version, etc.)
-  canceledAt   DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  attachments  BookingFile[]  @relation("BookingToBookingFile")
-  history      BookingEvent[] @relation("BookingToBookingEvent")
-  quote        Quote?         @relation(fields: [quoteId], references: [id])
-  quoteId      Int?           @unique
-  reference    String?        @unique
-
-  // indexes
-  @@index([startAt])
-  @@index([status])
-  @@index([assignedToId])
-}
-
-model Payment {
-  id          Int           @id @default(autoincrement())
-  booking     Booking       @relation("BookingPayment", fields: [bookingId], references: [id])
-  bookingId   Int           @unique
-  amount      Float
-  method      PaymentMethod
-  providerRef String?
-  status      PaymentStatus @default(UNPAID)
-  paidAt      DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
 model StaffAvailability {
-  id        Int       @id @default(autoincrement())
-  staff     User      @relation("UserAvailabilities", fields: [staffId], references: [id])
+  id        Int      @id @default(autoincrement())
+  staff     User     @relation("UserAvailabilities", fields: [staffId], references: [id])
   staffId   Int
-  dayOfWeek Int? // 0=Sunday..6=Saturday
+  dayOfWeek Int?
   startTime String?
   endTime   String?
   startAt   DateTime?
   endAt     DateTime?
-  isBlocked Boolean   @default(false)
+  isBlocked Boolean  @default(false)
   notes     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Notification {
