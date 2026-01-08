@@ -1,6 +1,12 @@
 import { PrismaClient } from "@prisma/client";
+
 const prisma = new PrismaClient();
 
+/**
+ * Sync Firebase user with database
+ * - Creates DB user if missing
+ * - Always returns DB user
+ */
 export const syncUser = async (req, res) => {
   try {
     const fbUser = req.firebaseUser;
@@ -13,15 +19,13 @@ export const syncUser = async (req, res) => {
       user = await prisma.user.create({
         data: {
           firebaseUid: fbUser.uid,
-
-          // ✅ email-safe (prevents crash)
-          email: fbUser.email ?? `${fbUser.uid}@firebase.local`, // fallback
-
-          // ✅ name-safe
-          name: fbUser.name ?? fbUser.displayName ?? "User",
-
-          // ✅ REQUIRED for your app
-          role: "CLIENT",
+          email: fbUser.email ?? `${fbUser.uid}@firebase.local`,
+          name:
+            fbUser.name ??
+            fbUser.displayName ??
+            fbUser.email?.split("@")[0] ??
+            "User",
+          role: "CLIENT", // default role
         },
       });
     }
@@ -29,6 +33,6 @@ export const syncUser = async (req, res) => {
     return res.json(user);
   } catch (err) {
     console.error("Auth sync error:", err);
-    return res.status(401).json({ message: "Auth sync failed" });
+    return res.status(500).json({ message: "Auth sync failed" });
   }
 };
