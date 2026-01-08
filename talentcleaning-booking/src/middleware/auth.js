@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 /**
  * Authenticate user via Firebase token
- * Attach FULL database user to req.user
+ * ALWAYS guarantees a database user exists
  */
 export const authenticate = async (req, res, next) => {
   try {
@@ -20,22 +20,34 @@ export const authenticate = async (req, res, next) => {
     // ✅ Verify Firebase token
     const decoded = await admin.auth().verifyIdToken(token);
 
-    // ✅ Fetch user from database
-    const user = await prisma.user.findUnique({
+    // ✅ Find user in DB
+    let user = await prisma.user.findUnique({
       where: { firebaseUid: decoded.uid },
     });
 
+    // ✅ AUTO-CREATE USER IF MISSING (THIS IS THE FIX)
     if (!user) {
-      return res.status(401).json({ message: "User not found" });
+      user = await prisma.user.create({
+        data: {
+          firebaseUid: decoded.uid,
+
+          // prevent Prisma crashes
+          email: decoded.email ?? `${decoded.uid}@firebase.local`,
+          name: decoded.name ?? decoded.displayName ?? "User",
+
+          // default role
+          role: "CLIENT",
+        },
+      });
     }
 
-    // ✅ THESE TWO LINES FIX EVERYTHING
+    // ✅ Attach both
     req.user = user;
     req.firebaseUser = decoded;
 
     next();
   } catch (err) {
-    console.error("Auth error:", err.message);
+    console.error("Auth error:", err);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
