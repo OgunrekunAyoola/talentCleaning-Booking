@@ -143,13 +143,38 @@ export const updateBookingStatus = async (req, res) => {
  */
 export const deleteBooking = async (req, res) => {
   try {
-    const { id } = req.params;
+    const bookingId = Number(req.params.id);
+    const user = req.user; // comes from authenticate middleware
 
-    await prisma.booking.delete({
-      where: { id: Number(id) },
+    if (!bookingId) {
+      return res.status(400).json({ message: "Invalid booking id" });
+    }
+
+    // 1. Load the booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
     });
 
-    res.json({ message: "Booking deleted" });
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    // 2. Permission check
+    const isOwner = booking.clientId === user.id;
+    const isAdmin = user.role === "ADMIN";
+
+    if (!isOwner && !isAdmin) {
+      return res
+        .status(403)
+        .json({ message: "Not allowed to delete this booking" });
+    }
+
+    // 3. Delete safely
+    await prisma.booking.delete({
+      where: { id: bookingId },
+    });
+
+    res.json({ message: "Booking deleted successfully" });
   } catch (error) {
     console.error("Delete booking error:", error);
     res.status(500).json({ message: "Server error" });
